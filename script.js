@@ -20,21 +20,24 @@ function toggleTimeUnit() {
     btn.innerText = "hrs";
   }
 }
-// My Name is Vinay Shenoy.
+
 function calculateIPR() {
   // Input values
-  const o = parseFloat(document.getElementById("txtPoro").value) || 0;
-  const k = parseFloat(document.getElementById("txtPerm").value) || 0;
-  const h = parseFloat(document.getElementById("txtPayz").value) || 0;
-  const P = parseFloat(document.getElementById("txtResP").value) || 0;
-  const Pb = parseFloat(document.getElementById("txtBubl").value) || 0;
-  const Bo = parseFloat(document.getElementById("txtBo").value) || 0;
-  const u = parseFloat(document.getElementById("txtMu").value) || 0;
-  const Ct = parseFloat(document.getElementById("txtCt").value) || 0;
-  const A = parseFloat(document.getElementById("txtArea").value) || 0;
-  const rw = parseFloat(document.getElementById("txtRadi").value) || 0;
-  const S = parseFloat(document.getElementById("txtSkin").value) || 0;
-  const ti = parseFloat(document.getElementById("txtTime").value) || 0;
+  const o = parseFloat(document.getElementById("porosity").value) || 0;
+  const k = parseFloat(document.getElementById("permeability").value) || 0;
+  const h = parseFloat(document.getElementById("pay_thickness").value) || 0;
+  const P =
+    parseFloat(document.getElementById("reservoir_pressure").value) || 0;
+  const Pb = parseFloat(document.getElementById("bubble_pressure").value) || 0;
+  const Bo =
+    parseFloat(document.getElementById("oil_formation_volume_factor").value) ||
+    0;
+  const u = parseFloat(document.getElementById("viscosity").value) || 0;
+  const Ct = parseFloat(document.getElementById("compressibility").value) || 0;
+  const A = parseFloat(document.getElementById("area").value) || 0;
+  const rw = parseFloat(document.getElementById("well_radius").value) || 0;
+  const S = parseFloat(document.getElementById("skin").value) || 0;
+  const ti = parseFloat(document.getElementById("time").value) || 0;
 
   const flowRegime = document.getElementById("flowRegime").value;
   const unitText = document.getElementById("button2").innerText;
@@ -98,18 +101,75 @@ function calculateIPR() {
   // Sort points by X ascending for clean rendering
   chartPoints.sort((a, b) => a.x - b.x);
 
-  renderChart(chartPoints, qb + qv + 500, P + 500);
+  renderChart(
+    chartPoints,
+    roundToNearest1000(qb + qv + 500),
+    roundToNearest1000(P + 500),
+  );
+}
+
+function roundToNearest1000(value) {
+  return Math.round(value / 1000) * 1000;
 }
 
 function renderChart(points, maxX, maxY) {
-  const ctx = document.getElementById("iprChart").getContext("2d");
+  const canvas = document.getElementById("iprChart");
+  const ctx = canvas.getContext("2d");
 
   if (iprChartInstance) {
     iprChartInstance.destroy();
   }
 
+  // Force canvas aspect ratio
+  // if (maxX > 0 && maxY > 0) {
+  //   canvas.style.aspectRatio = `${maxX} / ${maxY}`;
+  // }
+
+  let maxPoint = maxX;
+  if (maxPoint < maxX) {
+    maxPoint = maxY;
+  }
+
+  // Custom plugin to display values near points
+  const pointValuePlugin = {
+    id: "pointValuePlugin",
+
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+
+      chart.data.datasets.forEach((dataset, datasetIndex) => {
+        const meta = chart.getDatasetMeta(datasetIndex);
+
+        meta.data.forEach((point, index) => {
+          const data = dataset.data[index];
+
+          if (!data || data.x === undefined || data.y === undefined) {
+            return;
+          }
+
+          const x = point.x;
+          const y = point.y;
+
+          ctx.save();
+
+          ctx.font = "14px Helvetica";
+          ctx.fillStyle = "#000000";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "bottom";
+          // Display X and Y values
+          const label = `(${Math.round(data.x * 100) / 100}, ${Math.round(data.y * 100) / 100})`;
+
+          // Position label slightly above and to the right of point
+          ctx.fillText(label, x - 15, y + 5);
+
+          ctx.restore();
+        });
+      });
+    },
+  };
+
   iprChartInstance = new Chart(ctx, {
-    type: "scatter",
+    type: "line",
     data: {
       datasets: [
         {
@@ -117,21 +177,44 @@ function renderChart(points, maxX, maxY) {
           data: points,
           showLine: true,
           borderColor: "#2563eb",
-          backgroundColor: "#2563eb",
-          borderWidth: 2,
-          pointRadius: 4,
+          backgroundColor: "#eb3225",
+          borderWidth: 3,
+          pointRadius: 3,
+          pointBackgroundColor: "#eb3225",
+          pointBorderColor: "#000000",
+          pointBorderWidth: 1,
         },
       ],
     },
+    plugins: [pointValuePlugin],
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
+      aspectRatio: 1,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: function (tooltipItems) {
+              return null;
+            },
+
+            label: function (context) {
+              const point = context.raw;
+
+              return [
+                `q: ${Math.round(point.x * 100) / 100} STB/day`,
+                `Pwf: ${Math.round(point.y * 100) / 100} psi`,
+              ];
+            },
+          },
+        },
+      },
       scales: {
         x: {
           type: "linear",
           position: "bottom",
           min: 0,
-          max: maxX,
+          max: maxPoint,
           title: {
             display: true,
             text: "Flow Rate q (STB/day)",
@@ -139,10 +222,10 @@ function renderChart(points, maxX, maxY) {
         },
         y: {
           min: 0,
-          max: maxY,
+          max: maxPoint,
           title: {
             display: true,
-            text: "Bottomhole Pressure Pwf (psi)",
+            text: "Bottomhole flow Pressure Pwf (psi)",
           },
         },
       },
@@ -150,5 +233,43 @@ function renderChart(points, maxX, maxY) {
   });
 }
 
-// Initial calculation on page load
-window.onload = calculateIPR;
+function saveIPRChart() {
+  if (!iprChartInstance) {
+    alert("Please generate the IPR chart first.");
+    return;
+  }
+
+  // Get chart image
+  const chartImage = new Image();
+
+  chartImage.onload = function () {
+    // Padding around the chart
+    const padding = 50;
+
+    // Create new canvas
+    const exportCanvas = document.createElement("canvas");
+    const exportCtx = exportCanvas.getContext("2d");
+
+    // Increase canvas size by padding
+    exportCanvas.width = chartImage.width + padding * 2;
+    exportCanvas.height = chartImage.height + padding * 2;
+
+    // White background
+    exportCtx.fillStyle = "#ffffff";
+    exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Draw chart with padding
+    exportCtx.drawImage(chartImage, padding, padding);
+
+    // Create download link
+    const link = document.createElement("a");
+
+    link.href = exportCanvas.toDataURL("image/png");
+    link.download = "IPR_Chart.png";
+
+    link.click();
+  };
+
+  // Get Chart.js image
+  chartImage.src = iprChartInstance.toBase64Image();
+}
