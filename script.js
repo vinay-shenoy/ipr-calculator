@@ -152,7 +152,7 @@ function renderChart(points, maxX, maxY) {
 
           ctx.save();
 
-          ctx.font = "14px Helvetica";
+          ctx.font = "10px Helvetica";
           ctx.fillStyle = "#000000";
           ctx.textAlign = "right";
           ctx.textBaseline = "bottom";
@@ -178,8 +178,9 @@ function renderChart(points, maxX, maxY) {
           showLine: true,
           borderColor: "#2563eb",
           backgroundColor: "#eb3225",
-          borderWidth: 3,
-          pointRadius: 3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 7,
           pointBackgroundColor: "#eb3225",
           pointBorderColor: "#000000",
           pointBorderWidth: 1,
