@@ -1,0 +1,15 @@
+/* Chart Container Wrapper */
+.chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 700px; /* Limits maximum size on laptops */
+  margin: 0 auto;
+  aspect-ratio: 1 / 1; /* Keeps square proportions across devices */
+}
+
+/* On small mobile screens, utilize maximum available width */
+@media (max-width: 600px) {
+  .chart-container {
+    max-width: 100%;
+  }
+}

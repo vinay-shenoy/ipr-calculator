@@ -3,21 +3,22 @@ let iprChartInstance = null;
 // Time Button Toggle Sequence
 function toggleTimeUnit() {
   const btn = document.getElementById("button2");
-  if (btn.innerText === "hrs") {
-    btn.innerText = "minutes";
-  } else if (btn.innerText === "minutes") {
-    btn.innerText = "seconds";
-  } else if (btn.innerText === "seconds") {
-    btn.innerText = "years";
-  } else if (btn.innerText === "years") {
-    btn.innerText = "months";
+  const units = [
+    "hrs",
+    "minutes",
+    "seconds",
+    "years",
+    "months",
+    "weeks",
+    "days",
+  ];
+  let currentIndex = units.indexOf(btn.innerText.trim());
+
+  let nextIndex = (currentIndex + 1) % units.length;
+  btn.innerText = units[nextIndex];
+
+  if (units[nextIndex] === "months") {
     alert("Assuming 1 month = 730hrs");
-  } else if (btn.innerText === "months") {
-    btn.innerText = "weeks";
-  } else if (btn.innerText === "weeks") {
-    btn.innerText = "days";
-  } else if (btn.innerText === "days") {
-    btn.innerText = "hrs";
   }
 }
 
@@ -40,7 +41,7 @@ function calculateIPR() {
   const ti = parseFloat(document.getElementById("time").value) || 0;
 
   const flowRegime = document.getElementById("flowRegime").value;
-  const unitText = document.getElementById("button2").innerText;
+  const unitText = document.getElementById("button2").innerText.trim();
 
   let x,
     y,
@@ -58,7 +59,7 @@ function calculateIPR() {
     else if (unitText === "weeks") t = ti * 168;
     else if (unitText === "hrs") t = ti;
     else if (unitText === "minutes") t = ti / 60;
-    else if (unitText === "seconds") t = ti / 3600; // Corrected seconds conversion
+    else if (unitText === "seconds") t = ti / 3600;
 
     x = k / (o * u * Ct * rw * rw);
     y = 162.6 * Bo * u * (Math.log10(t) + Math.log10(x) - 3.23);
@@ -83,19 +84,14 @@ function calculateIPR() {
 
   // Calculate Curve Points
   const chartPoints = [];
-  const yValues = [];
-  const xValues = [];
 
   for (let i = 0; i <= 10; i++) {
     const yVal = (i * Pb) / 10;
     const xVal = qb + qv * (1 - 0.2 * (i / 10) - 0.8 * Math.pow(i / 10, 2));
-
-    yValues.push(yVal);
-    xValues.push(xVal);
     chartPoints.push({ x: xVal, y: yVal });
   }
 
-  // Endpoint (xp = 0, yp = P)
+  // Endpoint (x = 0, y = P)
   chartPoints.push({ x: 0, y: P });
 
   // Sort points by X ascending for clean rendering
@@ -109,7 +105,7 @@ function calculateIPR() {
 }
 
 function roundToNearest1000(value) {
-  return Math.round(value / 1000) * 1000;
+  return Math.max(1000, Math.round(value / 1000) * 1000);
 }
 
 function renderChart(points, maxX, maxY) {
@@ -120,22 +116,16 @@ function renderChart(points, maxX, maxY) {
     iprChartInstance.destroy();
   }
 
-  // Force canvas aspect ratio
-  // if (maxX > 0 && maxY > 0) {
-  //   canvas.style.aspectRatio = `${maxX} / ${maxY}`;
-  // }
+  // FIXED: Correctly find maximum axis dimension to maintain a 1:1 square grid scale
+  const maxPoint = Math.max(maxX, maxY);
 
-  let maxPoint = maxX;
-  if (maxPoint < maxX) {
-    maxPoint = maxY;
-  }
-
-  // Custom plugin to display values near points
+  // Dynamic point labeling plugin with viewport detection
   const pointValuePlugin = {
     id: "pointValuePlugin",
-
     afterDatasetsDraw(chart) {
-      const ctx = chart.ctx;
+      const { ctx, width } = chart;
+      // Adjust font size based on current canvas width for mobile readability
+      const fontSize = width < 450 ? 8 : 10;
 
       chart.data.datasets.forEach((dataset, datasetIndex) => {
         const meta = chart.getDatasetMeta(datasetIndex);
@@ -143,25 +133,19 @@ function renderChart(points, maxX, maxY) {
         meta.data.forEach((point, index) => {
           const data = dataset.data[index];
 
-          if (!data || data.x === undefined || data.y === undefined) {
-            return;
-          }
+          if (!data || data.x === undefined || data.y === undefined) return;
 
           const x = point.x;
           const y = point.y;
 
           ctx.save();
-
-          ctx.font = "10px Helvetica";
-          ctx.fillStyle = "#000000";
+          ctx.font = `${fontSize}px sans-serif`;
+          ctx.fillStyle = "#1e293b";
           ctx.textAlign = "right";
           ctx.textBaseline = "bottom";
-          // Display X and Y values
-          const label = `(${Math.round(data.x * 100) / 100}, ${Math.round(data.y * 100) / 100})`;
 
-          // Position label slightly above and to the right of point
-          ctx.fillText(label, x - 15, y + 5);
-
+          const label = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
+          ctx.fillText(label, x - 6, y - 4);
           ctx.restore();
         });
       });
@@ -179,8 +163,8 @@ function renderChart(points, maxX, maxY) {
           borderColor: "#2563eb",
           backgroundColor: "#eb3225",
           borderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 7,
+          pointRadius: 3.5,
+          pointHoverRadius: 6,
           pointBackgroundColor: "#eb3225",
           pointBorderColor: "#000000",
           pointBorderWidth: 1,
@@ -191,17 +175,13 @@ function renderChart(points, maxX, maxY) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 1,
+      aspectRatio: 1, // Ensures perfect 1:1 box ratio
       plugins: {
         tooltip: {
           callbacks: {
-            title: function (tooltipItems) {
-              return null;
-            },
-
-            label: function (context) {
+            title: () => null,
+            label: (context) => {
               const point = context.raw;
-
               return [
                 `q: ${Math.round(point.x * 100) / 100} STB/day`,
                 `Pwf: ${Math.round(point.y * 100) / 100} psi`,
@@ -219,6 +199,11 @@ function renderChart(points, maxX, maxY) {
           title: {
             display: true,
             text: "Flow Rate q (STB/day)",
+            font: { size: 12, weight: "bold" },
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0,
           },
         },
         y: {
@@ -226,7 +211,8 @@ function renderChart(points, maxX, maxY) {
           max: maxPoint,
           title: {
             display: true,
-            text: "Bottomhole flow Pressure Pwf (psi)",
+            text: "Bottomhole Pressure Pwf (psi)",
+            font: { size: 12, weight: "bold" },
           },
         },
       },
@@ -240,37 +226,25 @@ function saveIPRChart() {
     return;
   }
 
-  // Get chart image
   const chartImage = new Image();
 
   chartImage.onload = function () {
-    // Padding around the chart
-    const padding = 50;
-
-    // Create new canvas
+    const padding = 40;
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d");
 
-    // Increase canvas size by padding
     exportCanvas.width = chartImage.width + padding * 2;
     exportCanvas.height = chartImage.height + padding * 2;
 
-    // White background
     exportCtx.fillStyle = "#ffffff";
     exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-    // Draw chart with padding
     exportCtx.drawImage(chartImage, padding, padding);
 
-    // Create download link
     const link = document.createElement("a");
-
     link.href = exportCanvas.toDataURL("image/png");
     link.download = "IPR_Chart.png";
-
     link.click();
   };
 
-  // Get Chart.js image
   chartImage.src = iprChartInstance.toBase64Image();
 }
