@@ -35,7 +35,8 @@ function calculateIPR() {
     0;
   const u = parseFloat(document.getElementById("viscosity").value) || 0;
   const Ct = parseFloat(document.getElementById("compressibility").value) || 0;
-  const A = parseFloat(document.getElementById("area").value) || 0;
+  // const A = parseFloat(document.getElementById("area").value) || 0;
+  const re = parseFloat(document.getElementById("drainage_radius").value) || 0;
   const rw = parseFloat(document.getElementById("well_radius").value) || 0;
   const S = parseFloat(document.getElementById("skin").value) || 0;
   const ti = parseFloat(document.getElementById("time").value) || 0;
@@ -49,7 +50,6 @@ function calculateIPR() {
     qv,
     qb,
     t = 0;
-  const re = Math.sqrt((A * 43560) / Math.PI);
 
   if (flowRegime === "Transient Flow") {
     // Time unit conversion to hours
@@ -116,8 +116,9 @@ function renderChart(points, maxX, maxY) {
     iprChartInstance.destroy();
   }
 
+  const step = 1000;
   // FIXED: Correctly find maximum axis dimension to maintain a 1:1 square grid scale
-  const maxPoint = Math.max(maxX, maxY);
+  const maxPoint = Math.ceil(Math.max(maxX, maxY) / step) * step;
 
   // Dynamic point labeling plugin with viewport detection
   const pointValuePlugin = {
@@ -168,10 +169,11 @@ function renderChart(points, maxX, maxY) {
           pointBackgroundColor: "#eb3225",
           pointBorderColor: "#000000",
           pointBorderWidth: 1,
+          tension: 0.1,
         },
       ],
     },
-    plugins: [pointValuePlugin],
+    plugins: [millimeterGridPlugin, pointValuePlugin],
     options: {
       responsive: true,
       maintainAspectRatio: true,
@@ -201,18 +203,35 @@ function renderChart(points, maxX, maxY) {
             text: "Flow Rate q (STB/day)",
             font: { size: 12, weight: "bold" },
           },
+          grid: {
+            color: "#25eb8f", // Color of major grid lines
+            lineWidth: 1,
+            drawBorder: true,
+            borderColor: "#000000",
+          },
           ticks: {
             maxRotation: 45,
             minRotation: 0,
+            stepSize: step,
           },
         },
         y: {
+          type: "linear",
           min: 0,
           max: maxPoint,
+          ticks: {
+            stepSize: step,
+          },
           title: {
             display: true,
             text: "Bottomhole Pressure Pwf (psi)",
             font: { size: 12, weight: "bold" },
+          },
+          grid: {
+            color: "#25eb8f", // Color of major grid lines
+            lineWidth: 1,
+            drawBorder: true,
+            borderColor: "#000000",
           },
         },
       },
@@ -220,6 +239,44 @@ function renderChart(points, maxX, maxY) {
   });
 }
 
+const millimeterGridPlugin = {
+  id: "millimeterGridPlugin",
+  beforeDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    const xScale = scales.x;
+    const yScale = scales.y;
+
+    if (!xScale || !yScale) return;
+
+    ctx.save();
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(37, 99, 235, 0.2)"; // Soft minor grid line color
+
+    // Draw minor vertical lines (every 100 units)
+    const xStep = 100;
+    for (let xVal = xScale.min; xVal <= xScale.max; xVal += xStep) {
+      if (xVal % 1000 === 0) continue; // Skip major grid lines
+      const xPixel = xScale.getPixelForValue(xVal);
+      ctx.beginPath();
+      ctx.moveTo(xPixel, chartArea.top);
+      ctx.lineTo(xPixel, chartArea.bottom);
+      ctx.stroke();
+    }
+
+    // Draw minor horizontal lines (every 100 units)
+    const yStep = 100;
+    for (let yVal = yScale.min; yVal <= yScale.max; yVal += yStep) {
+      if (yVal % 1000 === 0) continue; // Skip major grid lines
+      const yPixel = yScale.getPixelForValue(yVal);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, yPixel);
+      ctx.lineTo(chartArea.right, yPixel);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  },
+};
 function saveIPRChart() {
   if (!iprChartInstance) {
     alert("Please generate the IPR chart first.");
@@ -248,3 +305,5 @@ function saveIPRChart() {
 
   chartImage.src = iprChartInstance.toBase64Image();
 }
+
+window.onload = calculateIPR;

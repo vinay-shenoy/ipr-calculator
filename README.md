@@ -165,43 +165,7 @@ Where:
 * $q_b = J^* (p_r - p_b)$
 * Maximum theoretical flow rate at $p_{\text{wf}} = 0$ is $q_{\text{max}} = q_b + \frac{J^* p_b}{1.8}$
 
-## 10. Recommended IPR Chart
-
-The professional output should contain:
-
-### Identification
-
-- Well Name
-- Field
-- Reservoir / Zone
-- Prepared By
-- Date & Time
-- Revision
-- Calculation ID
-
-### Calculation Results
-
-- IPR Method
-- J<sup>*</sup> Calculation Method
-- Reservoir Pressure, p<sub>r</sub>
-- Bubble-Point Pressure, p<sub>b</sub>
-- Productivity Index, J<sup>*</sup>
-- Bubble-Point Rate, q<sub>b</sub>
-- Theoretical Maximum Rate, q<sub>max</sub>
-
-### Graph
-
-- X-axis: **Flowing Bottomhole Pressure, p<sub>wf</sub> (psi)**
-- Y-axis: **Production Rate, q (STB/day)**
-- Bubble-point marker
-- Reservoir-pressure endpoint
-- q<sub>b</sub> marker
-- q<sub>max</sub> marker
-- Linear and Vogel regions in the legend
-
-Do not place excessive administrative information inside the plotting area. Keep identification in a header, calculated values in a results block, the engineering relationship in the graph, and notes/revision information in a footer.
-
-## 11. Input Validation
+## 10. Input Validation
 
 Recommended checks:
 
@@ -222,7 +186,7 @@ Recommended checks:
 
 The application should prevent division by zero and invalid logarithmic arguments.
 
-## 12. Unit Consistency
+## 11. Unit Consistency
 
 The formulas use specified field units. The UI should display units beside every input.
 

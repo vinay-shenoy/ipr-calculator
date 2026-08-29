@@ -1,14 +1,26 @@
 /* Chart Container Wrapper */
+/* .chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1; 
+} */
+
 .chart-container {
   position: relative;
   width: 100%;
-  max-width: 700px; /* Limits maximum size on laptops */
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
   margin: 0 auto;
-  aspect-ratio: 1 / 1; /* Keeps square proportions across devices */
+  padding: 10px;
+  background-color: #fcfdf9; /* Slightly off-white paper color */
+  border: 2px solid #334155;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* On small mobile screens, utilize maximum available width */
-@media (max-width: 600px) {
+@media (max-width: 100px) {
   .chart-container {
     max-width: 100%;
   }
