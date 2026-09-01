@@ -75,6 +75,8 @@ function calculateIPR() {
   }
 
   qv = (J * Pb) / 1.8;
+  // qv=qv/1.8
+  console.log("Productivity Index J = " + J + " " + Pb + " " + qv);
   qb = J * (P - Pb);
 
   // Update Text Outputs
@@ -146,7 +148,9 @@ function renderChart(points, maxX, maxY) {
           ctx.textBaseline = "bottom";
 
           const label = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
-          ctx.fillText(label, x - 6, y - 4);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(label, x+35, y);
           ctx.restore();
         });
       });
