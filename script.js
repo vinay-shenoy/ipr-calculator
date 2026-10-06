@@ -1,8 +1,8 @@
 let iprChartInstance = null;
 
-// Time Button Toggle Sequence
 function toggleTimeUnit() {
   const btn = document.getElementById("button2");
+
   const units = [
     "hrs",
     "minutes",
@@ -12,9 +12,11 @@ function toggleTimeUnit() {
     "weeks",
     "days",
   ];
+
   let currentIndex = units.indexOf(btn.innerText.trim());
 
   let nextIndex = (currentIndex + 1) % units.length;
+
   btn.innerText = units[nextIndex];
 
   if (units[nextIndex] === "months") {
@@ -23,7 +25,6 @@ function toggleTimeUnit() {
 }
 
 function calculateIPR() {
-  // Input values
   const o = parseFloat(document.getElementById("porosity").value) || 0;
   const k = parseFloat(document.getElementById("permeability").value) || 0;
   const h = parseFloat(document.getElementById("pay_thickness").value) || 0;
@@ -35,31 +36,40 @@ function calculateIPR() {
     0;
   const u = parseFloat(document.getElementById("viscosity").value) || 0;
   const Ct = parseFloat(document.getElementById("compressibility").value) || 0;
-  // const A = parseFloat(document.getElementById("area").value) || 0;
   const re = parseFloat(document.getElementById("drainage_radius").value) || 0;
   const rw = parseFloat(document.getElementById("well_radius").value) || 0;
   const S = parseFloat(document.getElementById("skin").value) || 0;
   const ti = parseFloat(document.getElementById("time").value) || 0;
-
   const flowRegime = document.getElementById("flowRegime").value;
   const unitText = document.getElementById("button2").innerText.trim();
 
-  let x,
-    y,
-    J,
-    qv,
-    qb,
-    t = 0;
+  let x;
+  let y;
+  let J;
+  let qv;
+  let qb;
+  let t = 0;
 
   if (flowRegime === "Transient Flow") {
-    // Time unit conversion to hours
-    if (unitText === "years") t = ti * 8760;
-    else if (unitText === "months") t = ti * 730;
-    else if (unitText === "days") t = ti * 24;
-    else if (unitText === "weeks") t = ti * 168;
-    else if (unitText === "hrs") t = ti;
-    else if (unitText === "minutes") t = ti / 60;
-    else if (unitText === "seconds") t = ti / 3600;
+    if (unitText === "years") {
+      t = ti * 8760;
+    } else if (unitText === "months") {
+      t = ti * 730;
+    } else if (unitText === "days") {
+      t = ti * 24;
+    } else if (unitText === "weeks") {
+      t = ti * 168;
+    } else if (unitText === "hrs") {
+      t = ti;
+    } else if (unitText === "minutes") {
+      t = ti / 60;
+    } else if (unitText === "seconds") {
+      t = ti / 3600;
+    }
+
+    if (t <= 0) {
+      t = 0.000001;
+    }
 
     x = k / (o * u * Ct * rw * rw);
     y = 162.6 * Bo * u * (Math.log10(t) + Math.log10(x) - 3.23);
@@ -75,68 +85,141 @@ function calculateIPR() {
   }
 
   qv = (J * Pb) / 1.8;
-  // qv=qv/1.8
-  console.log("Productivity Index J = " + J + " " + Pb + " " + qv);
+
+  console.log(
+    "Productivity Index J = " + J + " | Pb = " + Pb + " | qv = " + qv,
+  );
+
   qb = J * (P - Pb);
 
-  // Update Text Outputs
   document.getElementById("txtJ").innerText = J.toFixed(4);
   document.getElementById("txtqv").innerText = qv.toFixed(2);
   document.getElementById("txtqb").innerText = qb.toFixed(2);
 
-  // Calculate Curve Points
   const chartPoints = [];
 
   for (let i = 0; i <= 10; i++) {
     const yVal = (i * Pb) / 10;
+
     const xVal = qb + qv * (1 - 0.2 * (i / 10) - 0.8 * Math.pow(i / 10, 2));
-    chartPoints.push({ x: xVal, y: yVal });
+
+    chartPoints.push({
+      x: xVal,
+      y: yVal,
+    });
   }
 
-  // Endpoint (x = 0, y = P)
-  chartPoints.push({ x: 0, y: P });
+  chartPoints.push({
+    x: 0,
+    y: P,
+  });
 
-  // Sort points by X ascending for clean rendering
   chartPoints.sort((a, b) => a.x - b.x);
 
-  renderChart(
-    chartPoints,
-    roundToNearest1000(qb + qv + 500),
-    roundToNearest1000(P + 500),
-  );
+  const calculatedMaxX = Math.max(...chartPoints.map((point) => point.x), 0);
+  const calculatedMaxY = Math.max(...chartPoints.map((point) => point.y), 0);
+  const maxX = calculatedMaxX + Math.max(calculatedMaxX * 0.05, 100);
+  const maxY = calculatedMaxY + Math.max(calculatedMaxY * 0.05, 100);
+
+  renderChart(chartPoints, maxX, maxY);
 }
 
-function roundToNearest1000(value) {
-  return Math.max(1000, Math.round(value / 1000) * 1000);
+function niceStep(value) {
+  if (!isFinite(value) || value <= 0) {
+    return 1;
+  }
+
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = Math.pow(10, exponent);
+  const fraction = value / magnitude;
+
+  let niceFraction;
+
+  if (fraction <= 1) {
+    niceFraction = 1;
+  } else if (fraction <= 2) {
+    niceFraction = 2;
+  } else if (fraction <= 5) {
+    niceFraction = 5;
+  } else {
+    niceFraction = 10;
+  }
+
+  return niceFraction * magnitude;
+}
+
+function getAxisConfiguration(maxValue, numberOfBlocks) {
+  const rawStep = maxValue / numberOfBlocks;
+  const step = niceStep(rawStep);
+  const axisMax = step * numberOfBlocks;
+
+  return {
+    step: step,
+    max: axisMax,
+    blocks: numberOfBlocks,
+  };
+}
+
+function getGridConfiguration(maxX, maxY) {
+  let bestConfiguration = null;
+
+  for (let blocks = 5; blocks <= 10; blocks++) {
+    const xAxis = getAxisConfiguration(maxX, blocks);
+
+    const yAxis = getAxisConfiguration(maxY, blocks);
+
+    const xWaste = maxX > 0 ? (xAxis.max - maxX) / maxX : 0;
+    const yWaste = maxY > 0 ? (yAxis.max - maxY) / maxY : 0;
+    const totalWaste = xWaste + yWaste;
+
+    if (bestConfiguration === null || totalWaste < bestConfiguration.waste) {
+      bestConfiguration = {
+        blocks: blocks,
+
+        xStep: xAxis.step,
+        xMax: xAxis.max,
+        yStep: yAxis.step,
+        yMax: yAxis.max,
+        waste: totalWaste,
+      };
+    }
+  }
+
+  return bestConfiguration;
 }
 
 function renderChart(points, maxX, maxY) {
   const canvas = document.getElementById("iprChart");
+
   const ctx = canvas.getContext("2d");
 
   if (iprChartInstance) {
     iprChartInstance.destroy();
   }
 
-  const step = 1000;
-  // FIXED: Correctly find maximum axis dimension to maintain a 1:1 square grid scale
-  const maxPoint = Math.ceil(Math.max(maxX, maxY) / step) * step;
+  const gridConfig = getGridConfiguration(maxX, maxY);
+  const xStep = gridConfig.xStep;
+  const yStep = gridConfig.yStep;
+  const xMax = gridConfig.xMax;
+  const yMax = gridConfig.yMax;
 
-  // Dynamic point labeling plugin with viewport detection
+  const numberOfBlocks = gridConfig.blocks;
+
   const pointValuePlugin = {
     id: "pointValuePlugin",
+
     afterDatasetsDraw(chart) {
       const { ctx, width } = chart;
-      // Adjust font size based on current canvas width for mobile readability
       const fontSize = width < 450 ? 8 : 10;
-
       chart.data.datasets.forEach((dataset, datasetIndex) => {
         const meta = chart.getDatasetMeta(datasetIndex);
 
         meta.data.forEach((point, index) => {
           const data = dataset.data[index];
 
-          if (!data || data.x === undefined || data.y === undefined) return;
+          if (!data || data.x === undefined || data.y === undefined) {
+            return;
+          }
 
           const x = point.x;
           const y = point.y;
@@ -144,13 +227,10 @@ function renderChart(points, maxX, maxY) {
           ctx.save();
           ctx.font = `${fontSize}px sans-serif`;
           ctx.fillStyle = "#1e293b";
-          ctx.textAlign = "right";
-          ctx.textBaseline = "bottom";
-
-          const label = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(label, x+35, y);
+          const label = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
+          ctx.fillText(label, x + 35, y);
           ctx.restore();
         });
       });
@@ -159,6 +239,7 @@ function renderChart(points, maxX, maxY) {
 
   iprChartInstance = new Chart(ctx, {
     type: "line",
+
     data: {
       datasets: [
         {
@@ -177,65 +258,109 @@ function renderChart(points, maxX, maxY) {
         },
       ],
     },
-    plugins: [millimeterGridPlugin, pointValuePlugin],
+
+    plugins: [squareGridPlugin, pointValuePlugin],
+
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 1, // Ensures perfect 1:1 box ratio
+      aspectRatio: 1.2,
+
       plugins: {
         tooltip: {
           callbacks: {
             title: () => null,
+
             label: (context) => {
               const point = context.raw;
+
               return [
                 `q: ${Math.round(point.x * 100) / 100} STB/day`,
+
                 `Pwf: ${Math.round(point.y * 100) / 100} psi`,
               ];
             },
           },
         },
+
+        legend: {
+          display: false,
+        },
       },
+
+      layout: {
+        padding: {
+          top: 20,
+          right: 25,
+          bottom: 15,
+          left: 10,
+        },
+      },
+
       scales: {
         x: {
           type: "linear",
           position: "bottom",
           min: 0,
-          max: maxPoint,
+          max: xMax,
           title: {
             display: true,
             text: "Flow Rate q (STB/day)",
-            font: { size: 12, weight: "bold" },
+            font: {
+              size: 12,
+              weight: "bold",
+            },
           },
-          grid: {
-            color: "#25eb8f", // Color of major grid lines
-            lineWidth: 1,
-            drawBorder: true,
-            borderColor: "#000000",
-          },
+
           ticks: {
+            stepSize: xStep,
             maxRotation: 45,
             minRotation: 0,
-            stepSize: step,
+            callback: function (value) {
+              return Number(value).toLocaleString();
+            },
+          },
+
+          grid: {
+            display: false,
+          },
+
+          border: {
+            display: true,
+            color: "#000000",
+            width: 1,
           },
         },
+
         y: {
           type: "linear",
+          position: "left",
           min: 0,
-          max: maxPoint,
-          ticks: {
-            stepSize: step,
-          },
+          max: yMax,
           title: {
             display: true,
             text: "Bottomhole Pressure Pwf (psi)",
-            font: { size: 12, weight: "bold" },
+            font: {
+              size: 12,
+              weight: "bold",
+            },
           },
+
+          ticks: {
+            stepSize: yStep,
+            callback: function (value) {
+              return Number(value).toLocaleString();
+            },
+          },
+
           grid: {
-            color: "#25eb8f", // Color of major grid lines
-            lineWidth: 1,
-            drawBorder: true,
-            borderColor: "#000000",
+            display: false,
+          },
+
+          border: {
+            display: true,
+            color: "#000000",
+            width: 1,
           },
         },
       },
@@ -243,47 +368,122 @@ function renderChart(points, maxX, maxY) {
   });
 }
 
-const millimeterGridPlugin = {
-  id: "millimeterGridPlugin",
+const squareGridPlugin = {
+  id: "squareGridPlugin",
+
   beforeDraw(chart) {
     const { ctx, chartArea, scales } = chart;
     const xScale = scales.x;
     const yScale = scales.y;
 
-    if (!xScale || !yScale) return;
+    if (!xScale || !yScale || !chartArea) {
+      return;
+    }
+
+    const xMin = xScale.min;
+    const xMax = xScale.max;
+    const yMin = yScale.min;
+    const yMax = yScale.max;
+    const xStep = xScale.options.ticks.stepSize / 2;
+    const yStep = yScale.options.ticks.stepSize / 2;
+
+    if (!xStep || !yStep) {
+      return;
+    }
 
     ctx.save();
-    ctx.lineWidth = 0.5;
-    ctx.strokeStyle = "rgba(37, 99, 235, 0.2)"; // Soft minor grid line color
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = "rgba(37, 99, 235, 0.25)";
 
-    // Draw minor vertical lines (every 100 units)
-    const xStep = 100;
-    for (let xVal = xScale.min; xVal <= xScale.max; xVal += xStep) {
-      if (xVal % 1000 === 0) continue; // Skip major grid lines
-      const xPixel = xScale.getPixelForValue(xVal);
+    for (let value = xMin; value <= xMax + xStep * 0.001; value += xStep) {
+      const pixel = xScale.getPixelForValue(value);
+
+      if (pixel < chartArea.left || pixel > chartArea.right) {
+        continue;
+      }
+
       ctx.beginPath();
-      ctx.moveTo(xPixel, chartArea.top);
-      ctx.lineTo(xPixel, chartArea.bottom);
+      ctx.moveTo(pixel, chartArea.top);
+      ctx.lineTo(pixel, chartArea.bottom);
       ctx.stroke();
     }
 
-    // Draw minor horizontal lines (every 100 units)
-    const yStep = 100;
-    for (let yVal = yScale.min; yVal <= yScale.max; yVal += yStep) {
-      if (yVal % 1000 === 0) continue; // Skip major grid lines
-      const yPixel = yScale.getPixelForValue(yVal);
+    for (let value = yMin; value <= yMax + yStep * 0.001; value += yStep) {
+      const pixel = yScale.getPixelForValue(value);
+
+      if (pixel < chartArea.top || pixel > chartArea.bottom) {
+        continue;
+      }
+
       ctx.beginPath();
-      ctx.moveTo(chartArea.left, yPixel);
-      ctx.lineTo(chartArea.right, yPixel);
+      ctx.moveTo(chartArea.left, pixel);
+      ctx.lineTo(chartArea.right, pixel);
       ctx.stroke();
     }
 
+    ctx.lineWidth = 0.4;
+    ctx.strokeStyle = "rgba(37, 99, 235, 0.12)";
+
+    const xMinorStep = xStep / 5;
+    const yMinorStep = yStep / 5;
+
+    for (
+      let value = xMin + xMinorStep;
+      value < xMax - xMinorStep * 0.001;
+      value += xMinorStep
+    ) {
+      // Check if this is a major line
+
+      const majorRatio = value / xStep;
+
+      if (Math.abs(majorRatio - Math.round(majorRatio)) < 0.000001) {
+        continue;
+      }
+
+      const pixel = xScale.getPixelForValue(value);
+
+      if (pixel < chartArea.left || pixel > chartArea.right) {
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(pixel, chartArea.top);
+      ctx.lineTo(pixel, chartArea.bottom);
+      ctx.stroke();
+    }
+
+    for (
+      let value = yMin + yMinorStep;
+      value < yMax - yMinorStep * 0.001;
+      value += yMinorStep
+    ) {
+      // Check if this is a major line
+
+      const majorRatio = value / yStep;
+
+      if (Math.abs(majorRatio - Math.round(majorRatio)) < 0.000001) {
+        continue;
+      }
+
+      const pixel = yScale.getPixelForValue(value);
+
+      if (pixel < chartArea.top || pixel > chartArea.bottom) {
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, pixel);
+      ctx.lineTo(chartArea.right, pixel);
+      ctx.stroke();
+    }
     ctx.restore();
   },
 };
+
 function saveIPRChart() {
   if (!iprChartInstance) {
     alert("Please generate the IPR chart first.");
+
     return;
   }
 
@@ -296,12 +496,12 @@ function saveIPRChart() {
 
     exportCanvas.width = chartImage.width + padding * 2;
     exportCanvas.height = chartImage.height + padding * 2;
-
     exportCtx.fillStyle = "#ffffff";
     exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
     exportCtx.drawImage(chartImage, padding, padding);
 
     const link = document.createElement("a");
+
     link.href = exportCanvas.toDataURL("image/png");
     link.download = "IPR_Chart.png";
     link.click();
