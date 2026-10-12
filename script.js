@@ -51,6 +51,7 @@ function calculateIPR() {
   let t = 0;
 
   if (flowRegime === "Transient Flow") {
+    document.getElementById("time-transient").style.display = "block";
     if (unitText === "years") {
       t = ti * 8760;
     } else if (unitText === "months") {
@@ -311,7 +312,6 @@ function renderChart(points, maxX, maxY) {
               weight: "bold",
             },
           },
-
           ticks: {
             stepSize: xStep,
             maxRotation: 45,
@@ -320,11 +320,9 @@ function renderChart(points, maxX, maxY) {
               return Number(value).toLocaleString();
             },
           },
-
           grid: {
             display: false,
           },
-
           border: {
             display: true,
             color: "#000000",
@@ -511,3 +509,4 @@ function saveIPRChart() {
 }
 
 window.onload = calculateIPR;
+window.onchange = calculateIPR;
