@@ -478,35 +478,90 @@ const squareGridPlugin = {
   },
 };
 
+
+
 function saveIPRChart() {
-  if (!iprChartInstance) {
-    alert("Please generate the IPR chart first.");
+    if (!iprChartInstance) {
+        alert("Please generate the IPR chart first.");
+        return;
+    }
 
-    return;
-  }
-
-  const chartImage = new Image();
-
-  chartImage.onload = function () {
+    const chartWidth = 700;
+    const chartHeight = 600;
     const padding = 40;
-    const exportCanvas = document.createElement("canvas");
-    const exportCtx = exportCanvas.getContext("2d");
 
-    exportCanvas.width = chartImage.width + padding * 2;
-    exportCanvas.height = chartImage.height + padding * 2;
-    exportCtx.fillStyle = "#ffffff";
-    exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-    exportCtx.drawImage(chartImage, padding, padding);
+    // Save the current chart dimensions
+    const originalWidth = iprChartInstance.width;
+    const originalHeight = iprChartInstance.height;
 
-    const link = document.createElement("a");
+    // Temporarily disable responsive resizing
+    const originalResponsive = iprChartInstance.options.responsive;
+    const originalMaintainAspectRatio =
+        iprChartInstance.options.maintainAspectRatio;
 
-    link.href = exportCanvas.toDataURL("image/png");
-    link.download = "IPR_Chart.png";
-    link.click();
-  };
+    iprChartInstance.options.responsive = false;
+    iprChartInstance.options.maintainAspectRatio = false;
 
-  chartImage.src = iprChartInstance.toBase64Image();
+    // Resize and re-render at the required dimensions
+    iprChartInstance.resize(chartWidth, chartHeight);
+    iprChartInstance.update("none");
+
+    // Capture the newly rendered chart
+    const chartImage = new Image();
+
+    chartImage.onload = function () {
+        const exportCanvas = document.createElement("canvas");
+        const exportCtx = exportCanvas.getContext("2d");
+
+        exportCanvas.width = chartWidth + padding * 2;
+        exportCanvas.height = chartHeight + padding * 2;
+
+        // White background
+        exportCtx.fillStyle = "#ffffff";
+        exportCtx.fillRect(
+            0, 0,
+            exportCanvas.width,
+            exportCanvas.height
+        );
+
+        // Draw the chart at its full rendered resolution
+        exportCtx.drawImage(
+            chartImage,
+            padding,
+            padding,
+            chartWidth,
+            chartHeight
+        );
+
+        // Download
+        const link = document.createElement("a");
+        link.download = "IPR_Chart.png";
+        link.href = exportCanvas.toDataURL("image/png");
+        link.click();
+
+        // Restore the chart's original settings and size
+        iprChartInstance.options.responsive = originalResponsive;
+        iprChartInstance.options.maintainAspectRatio =
+            originalMaintainAspectRatio;
+
+        iprChartInstance.resize(originalWidth, originalHeight);
+        iprChartInstance.update("none");
+    };
+
+    chartImage.onerror = function () {
+        iprChartInstance.options.responsive = originalResponsive;
+        iprChartInstance.options.maintainAspectRatio =
+            originalMaintainAspectRatio;
+
+        iprChartInstance.resize(originalWidth, originalHeight);
+        iprChartInstance.update("none");
+
+        alert("Unable to export the IPR chart.");
+    };
+
+    chartImage.src = iprChartInstance.toBase64Image("image/png", 1);
 }
+
 
 window.onload = calculateIPR;
 window.onchange = calculateIPR;
