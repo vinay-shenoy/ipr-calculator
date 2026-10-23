@@ -2,6 +2,8 @@
 
 A petroleum engineering web application for calculating the **Productivity Index (J<sup>*</sup>)** and generating an **Inflow Performance Relationship (IPR)** curve for an oil well.
 
+[https://vinay-shenoy.github.io/ipr-calculator/](https://vinay-shenoy.github.io/ipr-calculator/)
+
 ## 1. Purpose
 
 The application follows this engineering workflow:
