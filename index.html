@@ -5,151 +5,78 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPR Calculator & Curve Plotter</title>
-
-  <!-- Bootstrap 5 CSS CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Bootstrap 5 CSS CDN -->
-  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"> -->
-
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
-<body class="bg-light vh-100 d-flex flex-column py-2">
+<body>
 
+  <header>
+    <h1>IPR<br>Calculator</h1>
+    <p>Inflow Performance Relationship / Curve Plotter</p>
+  </header>
 
-  <div class="d-flex">
-    <i class="bi bi-virus m-2"></i>
-    <i class="bi bi-whatsapp m-2"></i>
-  </div>
+  <main class="layout">
 
-  <div class="container-fluid py-4 px-4">
-    <div class="row g-4">
+    <section class="panel">
+      <h2>Reservoir &amp; Well Parameters</h2>
 
-      <!-- Left Column: Inputs & Controls -->
-      <div class="col-lg-6">
-        <div class="card shadow-sm border-0 rounded-3">
-          <div class="card-body p-4">
-            <h4 class="card-title text-primary mb-4">Reservoir & Well Parameters</h4>
-            <!-- Flow Regime Dropdown -->
-            <div class="mb-3">
-              <label for="flowRegime" class="form-label fw-bold">Flow Regime</label>
-              <select id="flowRegime" class="form-select">
+      <label for="flowRegime">Flow Regime</label>
+      <select id="flowRegime">
+        <option value="Pseudo-Steady State Flow">Pseudo-Steady State Flow</option>
+        <option value="Transient Flow">Transient Flow</option>
+        <option value="Steady State Flow">Steady State Flow</option>
+      </select>
 
-                <option value="Pseudo-Steady State Flow">Pseudo-Steady State Flow</option>
-                <option value="Transient Flow">Transient Flow</option>
-                <option value="Steady State Flow">Steady State Flow</option>
-              </select>
-            </div>
-
-            <!-- Inputs Grid -->
-            <div class="row g-3">
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Porosity (ϕ)</label>
-                <input type="number" id="porosity" class="form-control" step="any" value="0.19">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Permeability (k, md)</label>
-                <input type="number" id="permeability" class="form-control" step="any" value="82">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Pay Thickness (h, ft)</label>
-                <input type="number" id="pay_thickness" class="form-control" step="any" value="75">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Reservoir Press (P<sub>e</sub>, psi)</label>
-                <input type="number" id="reservoir_pressure" class="form-control" step="any" value="3500">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Bubble Pt Press (P<sub>b</sub>, psi)</label>
-                <input type="number" id="bubble_pressure" class="form-control" step="any" value="3150">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Oil FVF (B<sub>o</sub>, bbl/STB)</label>
-                <input type="number" id="oil_formation_volume_factor" class="form-control" step="any" value="1.1">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Viscosity (μ, cp)</label>
-                <input type="number" id="viscosity" class="form-control" step="any" value="1.7">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Compressibility (Ct, psi⁻¹)</label>
-                <input type="number" id="compressibility" class="form-control" step="any" value="0.0000129">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Drainage radius (r<sub>e</sub>, ft)</label>
-                <input type="number" id="drainage_radius" class="form-control" step="any" value="600">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Well Radius (r<sub>w</sub>, ft)</label>
-                <input type="number" id="well_radius" class="form-control" step="any" value="0.325">
-              </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold">Skin Factor (S)</label>
-                <input type="number" id="skin" class="form-control" step="any" value="0">
-              </div>
-              <div class="col-sm-6" id="time-transient" style="display: none;">
-                <label class="form-label fw-semibold">Time</label>
-                <div class="input-group">
-                  <input type="number" id="time" class="form-control" step="any" value="12">
-                  <button type="button" class="btn btn-outline-secondary" id="button2"
-                    onclick="toggleTimeUnit()">hrs</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Output Results Cards -->
-            <div class="row g-2 mt-3 pt-3 border-top border-secondary-subtle text-center">
-              <div class="col-4">
-                <div class="bg-light p-2 rounded border">
-                  <p class="text-muted d-block">Productivity Index (J)</p>
-                  <strong id="txtJ" class="text-primary fs-6">-</strong>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="bg-light p-2 rounded border">
-                  <p class="text-muted d-block">q<sub>v</sub> (STB/d)</p>
-                  <strong id="txtqv" class="text-primary fs-6">-</strong>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="bg-light p-2 rounded border">
-                  <p class="text-muted d-block">q<sub>b</sub> (STB/d)</p>
-                  <strong id="txtqb" class="text-primary fs-6">-</strong>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-
-
-      </div>
-
-      <!-- Right Column: Chart -->
-      <div class="col-lg-6 chart-container">
-        <div class="card shadow-sm border-0 rounded-3 h-100">
-          <div class="card-body p-4 d-flex flex-column">
-            <h4 class="card-title text-primary mb-4">Inflow Performance Relationship (IPR)</h4>
-
-            <div class="flex-grow-1 position-relative">
-              <canvas id="iprChart"></canvas>
-            </div>
-            <button class="btn btn-primary" onclick="saveIPRChart()">Save as Image</button>
+      <div class="grid">
+        <div><label>Porosity (ϕ)</label><input type="number" id="porosity" step="any" value="0.19"></div>
+        <div><label>Permeability (k, md)</label><input type="number" id="permeability" step="any" value="82"></div>
+        <div><label>Pay Thickness (h, ft)</label><input type="number" id="pay_thickness" step="any" value="75"></div>
+        <div><label>Reservoir Press (P<sub>e</sub>, psi)</label><input type="number" id="reservoir_pressure" step="any"
+            value="3500"></div>
+        <div><label>Bubble Pt Press (P<sub>b</sub>, psi)</label><input type="number" id="bubble_pressure" step="any"
+            value="3150"></div>
+        <div><label>Oil FVF (B<sub>o</sub>, bbl/STB)</label><input type="number" id="oil_formation_volume_factor"
+            step="any" value="1.1"></div>
+        <div><label>Viscosity (μ, cp)</label><input type="number" id="viscosity" step="any" value="1.7"></div>
+        <div><label>Compressibility (Ct, psi⁻¹)</label><input type="number" id="compressibility" step="any"
+            value="0.0000129"></div>
+        <div><label>Drainage radius (r<sub>e</sub>, ft)</label><input type="number" id="drainage_radius" step="any"
+            value="600"></div>
+        <div><label>Well Radius (r<sub>w</sub>, ft)</label><input type="number" id="well_radius" step="any"
+            value="0.325"></div>
+        <div><label>Skin Factor (S)</label><input type="number" id="skin" step="any" value="0"></div>
+        <div id="time-transient" style="display: none;">
+          <label>Time</label>
+          <div class="row">
+            <input type="number" id="time" step="any" value="12">
+            <button type="button" id="button2" onclick="toggleTimeUnit()">hrs</button>
           </div>
         </div>
       </div>
 
-    </div>
-  </div>
+      <div class="results">
+        <div class="result"><span>Productivity Index (J)</span><strong id="txtJ">-</strong></div>
+        <div class="result"><span>q<sub>v</sub> (STB/d)</span><strong id="txtqv">-</strong></div>
+        <div class="result"><span>q<sub>b</sub> (STB/d)</span><strong id="txtqb">-</strong></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>IPR Curve</h2>
+      <div class="chart-container">
+        <canvas id="iprChart"></canvas>
+      </div>
+      <button class="btn" onclick="saveIPRChart()">Save as Image</button>
+    </section>
+
+  </main>
 
   <script src="script.js"></script>
-
-  <!-- Bootstrap JS Bundle CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

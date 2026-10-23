@@ -1,567 +1,357 @@
 let iprChartInstance = null;
 
+const UNITS = ["hrs", "minutes", "seconds", "years", "months", "weeks", "days"];
+const HOURS = {
+  hrs: 1,
+  minutes: 1 / 60,
+  seconds: 1 / 3600,
+  years: 8760,
+  months: 730,
+  weeks: 168,
+  days: 24,
+};
+
 function toggleTimeUnit() {
   const btn = document.getElementById("button2");
-
-  const units = [
-    "hrs",
-    "minutes",
-    "seconds",
-    "years",
-    "months",
-    "weeks",
-    "days",
-  ];
-
-  let currentIndex = units.indexOf(btn.innerText.trim());
-
-  let nextIndex = (currentIndex + 1) % units.length;
-
-  btn.innerText = units[nextIndex];
-
-  if (units[nextIndex] === "months") {
-    alert("Assuming 1 month = 730hrs");
-  }
+  const next = UNITS[(UNITS.indexOf(btn.innerText.trim()) + 1) % UNITS.length];
+  btn.innerText = next;
+  if (next === "months") alert("Assuming 1 month = 730hrs");
+  calculateIPR();
 }
 
+const val = (id) => parseFloat(document.getElementById(id).value) || 0;
+
 function calculateIPR() {
-  const o = parseFloat(document.getElementById("porosity").value) || 0;
-  const k = parseFloat(document.getElementById("permeability").value) || 0;
-  const h = parseFloat(document.getElementById("pay_thickness").value) || 0;
-  const P =
-    parseFloat(document.getElementById("reservoir_pressure").value) || 0;
-  const Pb = parseFloat(document.getElementById("bubble_pressure").value) || 0;
-  const Bo =
-    parseFloat(document.getElementById("oil_formation_volume_factor").value) ||
-    0;
-  const u = parseFloat(document.getElementById("viscosity").value) || 0;
-  const Ct = parseFloat(document.getElementById("compressibility").value) || 0;
-  const re = parseFloat(document.getElementById("drainage_radius").value) || 0;
-  const rw = parseFloat(document.getElementById("well_radius").value) || 0;
-  const S = parseFloat(document.getElementById("skin").value) || 0;
-  const ti = parseFloat(document.getElementById("time").value) || 0;
-  const flowRegime = document.getElementById("flowRegime").value;
-  const unitText = document.getElementById("button2").innerText.trim();
+  const o = val("porosity"),
+    k = val("permeability"),
+    h = val("pay_thickness");
+  const P = val("reservoir_pressure"),
+    Pb = val("bubble_pressure");
+  const Bo = val("oil_formation_volume_factor"),
+    u = val("viscosity");
+  const Ct = val("compressibility"),
+    re = val("drainage_radius");
+  const rw = val("well_radius"),
+    S = val("skin"),
+    ti = val("time");
+  const regime = document.getElementById("flowRegime").value;
+  const unit = document.getElementById("button2").innerText.trim();
 
-  let x;
+  document.getElementById("time-transient").style.display =
+    regime === "Transient Flow" ? "block" : "none";
+
   let y;
-  let J;
-  let qv;
-  let qb;
-  let t = 0;
-
-  if (flowRegime === "Transient Flow") {
-    document.getElementById("time-transient").style.display = "block";
-    if (unitText === "years") {
-      t = ti * 8760;
-    } else if (unitText === "months") {
-      t = ti * 730;
-    } else if (unitText === "days") {
-      t = ti * 24;
-    } else if (unitText === "weeks") {
-      t = ti * 168;
-    } else if (unitText === "hrs") {
-      t = ti;
-    } else if (unitText === "minutes") {
-      t = ti / 60;
-    } else if (unitText === "seconds") {
-      t = ti / 3600;
-    }
-
-    if (t <= 0) {
-      t = 0.000001;
-    }
-
-    x = k / (o * u * Ct * rw * rw);
+  if (regime === "Transient Flow") {
+    let t = ti * (HOURS[unit] || 1);
+    if (t <= 0) t = 0.000001;
+    const x = k / (o * u * Ct * rw * rw);
     y = 162.6 * Bo * u * (Math.log10(t) + Math.log10(x) - 3.23);
-    J = (k * h) / y;
-  } else if (flowRegime === "Steady State Flow") {
-    x = re / rw;
-    y = 141.2 * Bo * u * (Math.log(x) + S);
-    J = (k * h) / y;
-  } else if (flowRegime === "Pseudo-Steady State Flow") {
-    x = re / rw;
-    y = 141.2 * Bo * u * (Math.log(x) - 0.75 + S);
-    J = (k * h) / y;
+  } else if (regime === "Steady State Flow") {
+    y = 141.2 * Bo * u * (Math.log(re / rw) + S);
+  } else {
+    y = 141.2 * Bo * u * (Math.log(re / rw) - 0.75 + S);
   }
 
-  qv = (J * Pb) / 1.8;
-
-  console.log(
-    "Productivity Index J = " + J + " | Pb = " + Pb + " | qv = " + qv,
-  );
-
-  qb = J * (P - Pb);
+  const J = (k * h) / y;
+  const qv = (J * Pb) / 1.8;
+  const qb = J * (P - Pb);
 
   document.getElementById("txtJ").innerText = J.toFixed(4);
   document.getElementById("txtqv").innerText = qv.toFixed(2);
   document.getElementById("txtqb").innerText = qb.toFixed(2);
 
-  const chartPoints = [];
-
+  const points = [];
   for (let i = 0; i <= 10; i++) {
-    const yVal = (i * Pb) / 10;
-
-    const xVal = qb + qv * (1 - 0.2 * (i / 10) - 0.8 * Math.pow(i / 10, 2));
-
-    chartPoints.push({
-      x: xVal,
-      y: yVal,
-    });
+    const f = i / 10;
+    points.push({ x: qb + qv * (1 - 0.2 * f - 0.8 * f * f), y: f * Pb });
   }
+  points.push({ x: 0, y: P });
+  points.sort((a, b) => a.x - b.x);
 
-  chartPoints.push({
-    x: 0,
-    y: P,
-  });
-
-  chartPoints.sort((a, b) => a.x - b.x);
-
-  const calculatedMaxX = Math.max(...chartPoints.map((point) => point.x), 0);
-  const calculatedMaxY = Math.max(...chartPoints.map((point) => point.y), 0);
-  const maxX = calculatedMaxX + Math.max(calculatedMaxX * 0.05, 100);
-  const maxY = calculatedMaxY + Math.max(calculatedMaxY * 0.05, 100);
-
-  renderChart(chartPoints, maxX, maxY);
+  const maxX = Math.max(...points.map((p) => p.x), 0);
+  const maxY = Math.max(...points.map((p) => p.y), 0);
+  renderChart(
+    points,
+    maxX + Math.max(maxX * 0.05, 100),
+    maxY + Math.max(maxY * 0.05, 100),
+  );
 }
 
 function niceStep(value) {
-  if (!isFinite(value) || value <= 0) {
-    return 1;
-  }
-
-  const exponent = Math.floor(Math.log10(value));
-  const magnitude = Math.pow(10, exponent);
-  const fraction = value / magnitude;
-
-  let niceFraction;
-
-  if (fraction <= 1) {
-    niceFraction = 1;
-  } else if (fraction <= 2) {
-    niceFraction = 2;
-  } else if (fraction <= 5) {
-    niceFraction = 5;
-  } else {
-    niceFraction = 10;
-  }
-
-  return niceFraction * magnitude;
+  if (!isFinite(value) || value <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(value)));
+  const f = value / mag;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
 }
 
-function getAxisConfiguration(maxValue, numberOfBlocks) {
-  const rawStep = maxValue / numberOfBlocks;
-  const step = niceStep(rawStep);
-  const axisMax = step * numberOfBlocks;
-
-  return {
-    step: step,
-    max: axisMax,
-    blocks: numberOfBlocks,
-  };
+function getAxisConfiguration(maxValue, blocks) {
+  const step = niceStep(maxValue / blocks);
+  return { step, max: step * blocks };
 }
 
 function getGridConfiguration(maxX, maxY) {
-  let bestConfiguration = null;
-
+  let best = null;
   for (let blocks = 5; blocks <= 10; blocks++) {
     const xAxis = getAxisConfiguration(maxX, blocks);
-
     const yAxis = getAxisConfiguration(maxY, blocks);
-
-    const xWaste = maxX > 0 ? (xAxis.max - maxX) / maxX : 0;
-    const yWaste = maxY > 0 ? (yAxis.max - maxY) / maxY : 0;
-    const totalWaste = xWaste + yWaste;
-
-    if (bestConfiguration === null || totalWaste < bestConfiguration.waste) {
-      bestConfiguration = {
-        blocks: blocks,
-
+    const waste =
+      (maxX > 0 ? (xAxis.max - maxX) / maxX : 0) +
+      (maxY > 0 ? (yAxis.max - maxY) / maxY : 0);
+    if (best === null || waste < best.waste) {
+      best = {
+        blocks,
         xStep: xAxis.step,
         xMax: xAxis.max,
         yStep: yAxis.step,
         yMax: yAxis.max,
-        waste: totalWaste,
+        waste,
       };
     }
   }
-
-  return bestConfiguration;
+  return best;
 }
 
-function renderChart(points, maxX, maxY) {
-  const canvas = document.getElementById("iprChart");
-
-  const ctx = canvas.getContext("2d");
-
-  if (iprChartInstance) {
-    iprChartInstance.destroy();
-  }
-
-  const gridConfig = getGridConfiguration(maxX, maxY);
-  const xStep = gridConfig.xStep;
-  const yStep = gridConfig.yStep;
-  const xMax = gridConfig.xMax;
-  const yMax = gridConfig.yMax;
-
-  const numberOfBlocks = gridConfig.blocks;
-
-  const pointValuePlugin = {
-    id: "pointValuePlugin",
-
-    afterDatasetsDraw(chart) {
-      const { ctx, width } = chart;
-      const fontSize = width < 450 ? 8 : 10;
-      chart.data.datasets.forEach((dataset, datasetIndex) => {
-        const meta = chart.getDatasetMeta(datasetIndex);
-
-        meta.data.forEach((point, index) => {
-          const data = dataset.data[index];
-
-          if (!data || data.x === undefined || data.y === undefined) {
-            return;
-          }
-
-          const x = point.x;
-          const y = point.y;
-
-          ctx.save();
-          ctx.font = `${fontSize}px sans-serif`;
-          ctx.fillStyle = "#1e293b";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          const label = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
-          ctx.fillText(label, x + 35, y);
-          ctx.restore();
-        });
-      });
-    },
-  };
-
-  iprChartInstance = new Chart(ctx, {
-    type: "line",
-
-    data: {
-      datasets: [
-        {
-          label: "IPR Curve",
-          data: points,
-          showLine: true,
-          borderColor: "#2563eb",
-          backgroundColor: "#eb3225",
-          borderWidth: 2,
-          pointRadius: 3.5,
-          pointHoverRadius: 6,
-          pointBackgroundColor: "#eb3225",
-          pointBorderColor: "#000000",
-          pointBorderWidth: 1,
-          tension: 0.1,
-        },
-      ],
-    },
-
-    plugins: [squareGridPlugin, pointValuePlugin],
-
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1.2,
-
-      plugins: {
-        tooltip: {
-          callbacks: {
-            title: () => null,
-
-            label: (context) => {
-              const point = context.raw;
-
-              return [
-                `q: ${Math.round(point.x * 100) / 100} STB/day`,
-
-                `Pwf: ${Math.round(point.y * 100) / 100} psi`,
-              ];
-            },
-          },
-        },
-
-        legend: {
-          display: false,
-        },
-      },
-
-      layout: {
-        padding: {
-          top: 20,
-          right: 25,
-          bottom: 15,
-          left: 10,
-        },
-      },
-
-      scales: {
-        x: {
-          type: "linear",
-          position: "bottom",
-          min: 0,
-          max: xMax,
-          title: {
-            display: true,
-            text: "Flow Rate q (STB/day)",
-            font: {
-              size: 12,
-              weight: "bold",
-            },
-          },
-          ticks: {
-            stepSize: xStep,
-            maxRotation: 45,
-            minRotation: 0,
-            callback: function (value) {
-              return Number(value).toLocaleString();
-            },
-          },
-          grid: {
-            display: false,
-          },
-          border: {
-            display: true,
-            color: "#000000",
-            width: 1,
-          },
-        },
-
-        y: {
-          type: "linear",
-          position: "left",
-          min: 0,
-          max: yMax,
-          title: {
-            display: true,
-            text: "Bottomhole Pressure Pwf (psi)",
-            font: {
-              size: 12,
-              weight: "bold",
-            },
-          },
-
-          ticks: {
-            stepSize: yStep,
-            callback: function (value) {
-              return Number(value).toLocaleString();
-            },
-          },
-
-          grid: {
-            display: false,
-          },
-
-          border: {
-            display: true,
-            color: "#000000",
-            width: 1,
-          },
-        },
-      },
-    },
-  });
-}
-
+// Square graph-paper grid: major lines every half tick step, minor lines every fifth of that
 const squareGridPlugin = {
   id: "squareGridPlugin",
-
   beforeDraw(chart) {
     const { ctx, chartArea, scales } = chart;
-    const xScale = scales.x;
-    const yScale = scales.y;
+    const xScale = scales.x,
+      yScale = scales.y;
+    if (!xScale || !yScale || !chartArea) return;
 
-    if (!xScale || !yScale || !chartArea) {
-      return;
-    }
-
-    const xMin = xScale.min;
-    const xMax = xScale.max;
-    const yMin = yScale.min;
-    const yMax = yScale.max;
     const xStep = xScale.options.ticks.stepSize / 2;
     const yStep = yScale.options.ticks.stepSize / 2;
+    if (!xStep || !yStep) return;
 
-    if (!xStep || !yStep) {
-      return;
-    }
+    const drawLines = (
+      scale,
+      min,
+      max,
+      step,
+      vertical,
+      skipMajor,
+      majorStep,
+    ) => {
+      for (let v = min; v <= max + step * 0.001; v += step) {
+        if (skipMajor) {
+          const r = v / majorStep;
+          if (Math.abs(r - Math.round(r)) < 0.000001) continue;
+        }
+        const p = scale.getPixelForValue(v);
+        if (
+          vertical
+            ? p < chartArea.left || p > chartArea.right
+            : p < chartArea.top || p > chartArea.bottom
+        )
+          continue;
+        ctx.beginPath();
+        if (vertical) {
+          ctx.moveTo(p, chartArea.top);
+          ctx.lineTo(p, chartArea.bottom);
+        } else {
+          ctx.moveTo(chartArea.left, p);
+          ctx.lineTo(chartArea.right, p);
+        }
+        ctx.stroke();
+      }
+    };
 
     ctx.save();
-    ctx.lineWidth = 0.8;
-    ctx.strokeStyle = "rgba(37, 99, 235, 0.25)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(77, 163, 117, 0.7)";
+    drawLines(xScale, xScale.min, xScale.max, xStep, true, false, xStep);
+    drawLines(yScale, yScale.min, yScale.max, yStep, false, false, yStep);
 
-    for (let value = xMin; value <= xMax + xStep * 0.001; value += xStep) {
-      const pixel = xScale.getPixelForValue(value);
-
-      if (pixel < chartArea.left || pixel > chartArea.right) {
-        continue;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(pixel, chartArea.top);
-      ctx.lineTo(pixel, chartArea.bottom);
-      ctx.stroke();
-    }
-
-    for (let value = yMin; value <= yMax + yStep * 0.001; value += yStep) {
-      const pixel = yScale.getPixelForValue(value);
-
-      if (pixel < chartArea.top || pixel > chartArea.bottom) {
-        continue;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(chartArea.left, pixel);
-      ctx.lineTo(chartArea.right, pixel);
-      ctx.stroke();
-    }
-
-    ctx.lineWidth = 0.4;
-    ctx.strokeStyle = "rgba(37, 99, 235, 0.12)";
-
-    const xMinorStep = xStep / 5;
-    const yMinorStep = yStep / 5;
-
-    for (
-      let value = xMin + xMinorStep;
-      value < xMax - xMinorStep * 0.001;
-      value += xMinorStep
-    ) {
-      // Check if this is a major line
-
-      const majorRatio = value / xStep;
-
-      if (Math.abs(majorRatio - Math.round(majorRatio)) < 0.000001) {
-        continue;
-      }
-
-      const pixel = xScale.getPixelForValue(value);
-
-      if (pixel < chartArea.left || pixel > chartArea.right) {
-        continue;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(pixel, chartArea.top);
-      ctx.lineTo(pixel, chartArea.bottom);
-      ctx.stroke();
-    }
-
-    for (
-      let value = yMin + yMinorStep;
-      value < yMax - yMinorStep * 0.001;
-      value += yMinorStep
-    ) {
-      // Check if this is a major line
-
-      const majorRatio = value / yStep;
-
-      if (Math.abs(majorRatio - Math.round(majorRatio)) < 0.000001) {
-        continue;
-      }
-
-      const pixel = yScale.getPixelForValue(value);
-
-      if (pixel < chartArea.top || pixel > chartArea.bottom) {
-        continue;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(chartArea.left, pixel);
-      ctx.lineTo(chartArea.right, pixel);
-      ctx.stroke();
-    }
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(138, 255, 193,0.7)";
+    drawLines(
+      xScale,
+      xScale.min + xStep / 5,
+      xScale.max - (xStep / 5) * 0.001,
+      xStep / 5,
+      true,
+      true,
+      xStep,
+    );
+    drawLines(
+      yScale,
+      yScale.min + yStep / 5,
+      yScale.max - (yStep / 5) * 0.001,
+      yStep / 5,
+      false,
+      true,
+      yStep,
+    );
     ctx.restore();
   },
 };
 
-
-
-function saveIPRChart() {
-    if (!iprChartInstance) {
-        alert("Please generate the IPR chart first.");
-        return;
-    }
-
-    const chartWidth = 700;
-    const chartHeight = 600;
-    const padding = 40;
-
-    // Save the current chart dimensions
-    const originalWidth = iprChartInstance.width;
-    const originalHeight = iprChartInstance.height;
-
-    // Temporarily disable responsive resizing
-    const originalResponsive = iprChartInstance.options.responsive;
-    const originalMaintainAspectRatio =
-        iprChartInstance.options.maintainAspectRatio;
-
-    iprChartInstance.options.responsive = false;
-    iprChartInstance.options.maintainAspectRatio = false;
-
-    // Resize and re-render at the required dimensions
-    iprChartInstance.resize(chartWidth, chartHeight);
-    iprChartInstance.update("none");
-
-    // Capture the newly rendered chart
-    const chartImage = new Image();
-
-    chartImage.onload = function () {
-        const exportCanvas = document.createElement("canvas");
-        const exportCtx = exportCanvas.getContext("2d");
-
-        exportCanvas.width = chartWidth + padding * 2;
-        exportCanvas.height = chartHeight + padding * 2;
-
-        // White background
-        exportCtx.fillStyle = "#ffffff";
-        exportCtx.fillRect(
-            0, 0,
-            exportCanvas.width,
-            exportCanvas.height
+const pointValuePlugin = {
+  id: "pointValuePlugin",
+  afterDatasetsDraw(chart) {
+    const { ctx, width } = chart;
+    chart.data.datasets.forEach((ds, di) => {
+      chart.getDatasetMeta(di).data.forEach((pt, i) => {
+        const d = ds.data[i];
+        if (!d) return;
+        ctx.save();
+        ctx.font = `700 ${width < 450 ? 8 : 10}px "Space Mono", monospace`;
+        ctx.fillStyle = "#000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          `(${Math.round(d.x)}, ${Math.round(d.y)})`,
+          pt.x + 38,
+          pt.y,
         );
+        ctx.restore();
+      });
+    });
+  },
+};
 
-        // Draw the chart at its full rendered resolution
-        exportCtx.drawImage(
-            chartImage,
-            padding,
-            padding,
-            chartWidth,
-            chartHeight
-        );
+function renderChart(points, maxX, maxY) {
+  if (iprChartInstance) iprChartInstance.destroy();
+  const g = getGridConfiguration(maxX, maxY);
+  const xa = { step: g.xStep, max: g.xMax },
+    ya = { step: g.yStep, max: g.yMax };
+  const axis = (text, a) => ({
+    type: "linear",
+    min: 0,
+    max: a.max,
+    title: {
+      display: true,
+      text,
+      color: "#000",
+      font: { family: "Space Mono", size: 14, weight: "bold" },
+    },
+    ticks: {
+      stepSize: a.step,
+      color: "#000",
+      font: { family: "Space Mono" },
+      callback: (v) => Number(v).toLocaleString(),
+    },
+    grid: { display: false },
+    border: { display: true, color: "#000", width: 3 },
+  });
 
-        // Download
-        const link = document.createElement("a");
-        link.download = "IPR_Chart.png";
-        link.href = exportCanvas.toDataURL("image/png");
-        link.click();
-
-        // Restore the chart's original settings and size
-        iprChartInstance.options.responsive = originalResponsive;
-        iprChartInstance.options.maintainAspectRatio =
-            originalMaintainAspectRatio;
-
-        iprChartInstance.resize(originalWidth, originalHeight);
-        iprChartInstance.update("none");
-    };
-
-    chartImage.onerror = function () {
-        iprChartInstance.options.responsive = originalResponsive;
-        iprChartInstance.options.maintainAspectRatio =
-            originalMaintainAspectRatio;
-
-        iprChartInstance.resize(originalWidth, originalHeight);
-        iprChartInstance.update("none");
-
-        alert("Unable to export the IPR chart.");
-    };
-
-    chartImage.src = iprChartInstance.toBase64Image("image/png", 1);
+  iprChartInstance = new Chart(
+    document.getElementById("iprChart").getContext("2d"),
+    {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: "IPR Curve",
+            data: points,
+            showLine: true,
+            borderColor: "#2a4bff",
+            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            pointBackgroundColor: "#ff9ec7",
+            pointBorderColor: "#000",
+            pointBorderWidth: 2,
+            tension: 0.1,
+          },
+        ],
+      },
+      plugins: [squareGridPlugin, pointValuePlugin],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 20, right: 40, bottom: 10, left: 10 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: () => null,
+              label: (c) => [
+                `q: ${Math.round(c.raw.x * 100) / 100} STB/day`,
+                `Pwf: ${Math.round(c.raw.y * 100) / 100} psi`,
+              ],
+            },
+          },
+        },
+        scales: {
+          x: axis("Flow Rate q (STB/day)", xa),
+          y: axis("Bottomhole Pressure Pwf (psi)", ya),
+        },
+      },
+    },
+  );
 }
 
+function saveIPRChart() {
+  if (!iprChartInstance) {
+    alert("Please generate the IPR chart first.");
+    return;
+  }
+
+  const chartWidth = 700;
+  const chartHeight = 600;
+  const padding = 40;
+
+  // Save the current chart dimensions
+  const originalWidth = iprChartInstance.width;
+  const originalHeight = iprChartInstance.height;
+
+  // Temporarily disable responsive resizing
+  const originalResponsive = iprChartInstance.options.responsive;
+  const originalMaintainAspectRatio =
+    iprChartInstance.options.maintainAspectRatio;
+
+  iprChartInstance.options.responsive = false;
+  iprChartInstance.options.maintainAspectRatio = false;
+
+  // Resize and re-render at the required dimensions
+  iprChartInstance.resize(chartWidth, chartHeight);
+  iprChartInstance.update("none");
+
+  // Capture the newly rendered chart
+  const chartImage = new Image();
+
+  chartImage.onload = function () {
+    const exportCanvas = document.createElement("canvas");
+    const exportCtx = exportCanvas.getContext("2d");
+
+    exportCanvas.width = chartWidth + padding * 2;
+    exportCanvas.height = chartHeight + padding * 2;
+
+    // White background
+    exportCtx.fillStyle = "#ffffff";
+    exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Draw the chart at its full rendered resolution
+    exportCtx.drawImage(chartImage, padding, padding, chartWidth, chartHeight);
+
+    // Download
+    const link = document.createElement("a");
+    link.download = "IPR_Chart.png";
+    link.href = exportCanvas.toDataURL("image/png");
+    link.click();
+
+    // Restore the chart's original settings and size
+    iprChartInstance.options.responsive = originalResponsive;
+    iprChartInstance.options.maintainAspectRatio = originalMaintainAspectRatio;
+
+    iprChartInstance.resize(originalWidth, originalHeight);
+    iprChartInstance.update("none");
+  };
+
+  chartImage.onerror = function () {
+    iprChartInstance.options.responsive = originalResponsive;
+    iprChartInstance.options.maintainAspectRatio = originalMaintainAspectRatio;
+
+    iprChartInstance.resize(originalWidth, originalHeight);
+    iprChartInstance.update("none");
+
+    alert("Unable to export the IPR chart.");
+  };
+
+  chartImage.src = iprChartInstance.toBase64Image("image/png", 1);
+}
 
 window.onload = calculateIPR;
 window.onchange = calculateIPR;
